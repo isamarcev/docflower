@@ -6,7 +6,6 @@ Emits no signals; the caller refreshes its own data on close.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -29,7 +28,7 @@ from docflow.application.interactors.commands.manage_tags import (
 )
 from docflow.application.interactors.queries.list_tags import ListTags
 from docflow.presentation.dialogs.create_tag_dialog import CreateTagDialog, TagFormData
-from docflow.presentation.styles.theme import tag_chip_style
+from docflow.presentation.widgets.tag_chip import TagChip
 
 
 class TagManagerDialog(QDialog):
@@ -65,9 +64,7 @@ class TagManagerDialog(QDialog):
         layout.addLayout(top)
 
         self._table = QTableWidget(0, 5)
-        self._table.setHorizontalHeaderLabels(
-            ["ТЕГ", "КОЛІР", "ДОКУМЕНТІВ", "ОПИС", ""]
-        )
+        self._table.setHorizontalHeaderLabels(["ТЕГ", "КОЛІР", "ДОКУМЕНТІВ", "ОПИС", ""])
         self._table.verticalHeader().setVisible(False)
         self._table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -77,9 +74,7 @@ class TagManagerDialog(QDialog):
         self._table.setColumnWidth(4, 90)
         layout.addWidget(self._table, stretch=1)
 
-        hint = QLabel(
-            "Видалення тегу не видаляє документи — лише знімає мітку."
-        )
+        hint = QLabel("Видалення тегу не видаляє документи — лише знімає мітку.")
         hint.setStyleSheet("color: #7A7257;")
         layout.addWidget(hint)
 
@@ -107,11 +102,10 @@ class TagManagerDialog(QDialog):
         self._table.insertRow(row)
         self._table.setRowHeight(row, 36)
 
-        # Name as a chip
-        chip = QLabel(t.name)
-        chip.setStyleSheet(tag_chip_style(t.color))
-        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Name as a chip — same pill widget used everywhere in the app.
+        chip = TagChip(t.name, t.color)
         wrap = QWidget()
+        wrap.setStyleSheet("background: transparent;")
         wlayout = QHBoxLayout(wrap)
         wlayout.setContentsMargins(6, 4, 6, 4)
         wlayout.addWidget(chip)
@@ -156,7 +150,9 @@ class TagManagerDialog(QDialog):
         if not dlg.exec():
             return
         data = dlg.data()
-        self._update_tag(tag_id=t.id, name=data.name, color=data.color, description=data.description)
+        self._update_tag(
+            tag_id=t.id, name=data.name, color=data.color, description=data.description
+        )
         self._refresh()
 
     def _on_delete(self, t: TagView) -> None:

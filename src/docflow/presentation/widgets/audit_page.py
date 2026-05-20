@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from docflow.application.dto import AuditRow
+from docflow.presentation.widgets.tag_chip import TagChip
 
 ACTION_LABELS = {
     "document_created": "створено документ",
@@ -89,9 +90,7 @@ class AuditPage(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setCheckable(True)
-            btn.toggled.connect(
-                lambda checked, key=action_key: self._toggle_action(key, checked)
-            )
+            btn.toggled.connect(lambda checked, key=action_key: self._toggle_action(key, checked))
             filt_row.addWidget(btn)
 
         filt_row.addStretch(1)
@@ -133,11 +132,7 @@ class AuditPage(QWidget):
         if self._active_actions:
             rows = [r for r in rows if r.action.value in self._active_actions]
         if query:
-            rows = [
-                r
-                for r in rows
-                if query in r.actor.lower() or query in r.details.lower()
-            ]
+            rows = [r for r in rows if query in r.actor.lower() or query in r.details.lower()]
         self._render(rows)
 
     def _render(self, rows: list[AuditRow]) -> None:
@@ -150,15 +145,11 @@ class AuditPage(QWidget):
 
             label = ACTION_LABELS.get(r.action.value, r.action.value)
             bg, fg = ACTION_COLORS.get(r.action.value, ("#DDD", "#2C2C2C"))
-            chip = QLabel(label)
-            chip.setStyleSheet(
-                f"background: {bg}; color: {fg}; border-radius: 10px; "
-                f"padding: 2px 8px; font-size: 11px;"
-            )
-            chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            chip = TagChip(label, bg=bg, fg=fg)
             wrap = QWidget()
+            wrap.setStyleSheet("background: transparent;")
             wlay = QHBoxLayout(wrap)
-            wlay.setContentsMargins(6, 2, 6, 2)
+            wlay.setContentsMargins(6, 4, 6, 4)
             wlay.addWidget(chip)
             wlay.addStretch(1)
             self._table.setCellWidget(idx, 2, wrap)

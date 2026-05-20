@@ -8,16 +8,16 @@ from __future__ import annotations
 
 # -------- Brand palette --------
 
-BG_PRIMARY = "#EFEAD8"        # main background (warm beige)
-BG_SIDEBAR = "#E8E0C9"        # slightly darker sidebar
-BG_CONTENT = "#F5F0DD"        # content panes
+BG_PRIMARY = "#EFEAD8"  # main background (warm beige)
+BG_SIDEBAR = "#E8E0C9"  # slightly darker sidebar
+BG_CONTENT = "#F5F0DD"  # content panes
 BG_ELEVATED = "#FFFFFF"
 BORDER = "#C9C0A5"
 TEXT_PRIMARY = "#2C2C2C"
 TEXT_SECONDARY = "#7A7257"
 TEXT_MUTED = "#A39A7B"
-SELECTED = "#F8E89B"          # selected row highlight
-ACCENT = "#2C2C2C"            # primary button
+SELECTED = "#F8E89B"  # selected row highlight
+ACCENT = "#2C2C2C"  # primary button
 DANGER_BG = "#F2C8C8"
 DANGER_FG = "#7A2C2C"
 
@@ -26,20 +26,20 @@ DANGER_FG = "#7A2C2C"
 TAG_COLORS: dict[str, tuple[str, str]] = {
     # name -> (background, text)
     "yellow": ("#F4D87A", "#5A4A1A"),
-    "mint":   ("#A8DBC1", "#1F4D3A"),
-    "blue":   ("#B5D4E8", "#1F3F5A"),
-    "pink":   ("#F4A8B5", "#5A1F2C"),
+    "mint": ("#A8DBC1", "#1F4D3A"),
+    "blue": ("#B5D4E8", "#1F3F5A"),
+    "pink": ("#F4A8B5", "#5A1F2C"),
     "purple": ("#C7B4D9", "#3F2C5A"),
     "orange": ("#E8A87C", "#5A2F1F"),
-    "gray":   ("transparent", TEXT_SECONDARY),  # draft style (dashed border)
+    "gray": ("transparent", TEXT_SECONDARY),  # draft style (dashed border)
 }
 
 DOC_TYPE_BADGE: dict[str, tuple[str, str]] = {
     # extension -> (background, text)
     "docx": ("#B5D4E8", "#1F3F5A"),
     "xlsx": ("#A8DBC1", "#1F4D3A"),
-    "xls":  ("#A8DBC1", "#1F4D3A"),
-    "pdf":  ("#F4A8B5", "#5A1F2C"),
+    "xls": ("#A8DBC1", "#1F4D3A"),
+    "pdf": ("#F4A8B5", "#5A1F2C"),
 }
 
 
@@ -212,21 +212,6 @@ QScrollBar::handle:horizontal {{
 }}
 QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 """
-
-
-def tag_chip_style(color_name: str) -> str:
-    """QSS snippet for an individual tag chip (used by widgets.tag_chip)."""
-    bg, fg = TAG_COLORS.get(color_name, TAG_COLORS["gray"])
-    if color_name == "gray":
-        return (
-            f"background: transparent; color: {fg}; "
-            f"border: 1px dashed {BORDER}; border-radius: 10px; "
-            f"padding: 1px 8px; font-size: 11px;"
-        )
-    return (
-        f"background: {bg}; color: {fg}; border: none; "
-        f"border-radius: 10px; padding: 1px 8px; font-size: 11px;"
-    )
 
 
 def doc_type_badge_style(doc_type: str) -> str:

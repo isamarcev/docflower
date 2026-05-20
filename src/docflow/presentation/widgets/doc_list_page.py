@@ -102,8 +102,14 @@ class DocumentListPage(QWidget):
 
             # tag chips
             tag_widget = QWidget()
+            # why: cell-widget containers inherit the global QWidget background
+            # (#EFEAD8), which paints OVER the table's row color and creates a
+            # visible "tag-cell-background-different-from-row" effect.
+            # Transparent lets the row color (alternate / selection) show through.
+            tag_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
+            tag_widget.setStyleSheet("background: transparent;")
             tag_layout = QHBoxLayout(tag_widget)
-            tag_layout.setContentsMargins(8, 2, 8, 2)
+            tag_layout.setContentsMargins(8, 4, 8, 4)
             tag_layout.setSpacing(4)
             for tag in r.tags[:4]:
                 tag_layout.addWidget(TagChip(tag.name, tag.color))
@@ -135,6 +141,7 @@ class DocumentListPage(QWidget):
 def _padded(widget: QWidget) -> QWidget:
     """Wrap a widget so it has consistent table-cell padding."""
     wrap = QWidget()
+    wrap.setStyleSheet("background: transparent;")
     lay = QHBoxLayout(wrap)
     lay.setContentsMargins(8, 4, 8, 4)
     lay.addWidget(widget)

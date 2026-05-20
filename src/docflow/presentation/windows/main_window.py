@@ -37,6 +37,7 @@ from docflow.presentation.dialogs.add_document_dialog import AddDocumentDialog
 from docflow.presentation.dialogs.confirm_delete_dialog import ConfirmDeleteDialog
 from docflow.presentation.dialogs.create_tag_dialog import CreateTagDialog
 from docflow.presentation.dialogs.edit_metadata_dialog import EditMetadataDialog
+from docflow.presentation.dialogs.help_dialog import AboutDialog, HelpDialog
 from docflow.presentation.dialogs.new_version_dialog import NewVersionDialog
 from docflow.presentation.dialogs.tag_manager_dialog import TagManagerDialog
 from docflow.presentation.dialogs.tag_picker_dialog import TagPickerDialog
@@ -58,7 +59,7 @@ PAGE_AUDIT = 3
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, use_cases: "UseCases", *, current_user: str) -> None:
+    def __init__(self, use_cases: UseCases, *, current_user: str) -> None:
         super().__init__()
         self._use_cases = use_cases
         self._current_user = current_user
@@ -111,7 +112,13 @@ class MainWindow(QMainWindow):
         m_tools.addAction("Керування тегами…").triggered.connect(self._on_manage_tags)
         m_tools.addAction("Журнал дій").triggered.connect(lambda: self._goto(PAGE_AUDIT))
 
-        menu.addMenu("&Довідка")
+        m_help = menu.addMenu("&Довідка")
+        act_help = QAction("Допомога користувачу", self)
+        act_help.setShortcut(QKeySequence("F1"))
+        act_help.triggered.connect(self._on_help)
+        m_help.addAction(act_help)
+        m_help.addSeparator()
+        m_help.addAction("Про DocFlow…").triggered.connect(self._on_about)
 
     def _build_toolbar(self) -> None:
         tb = QToolBar()
@@ -149,6 +156,13 @@ class MainWindow(QMainWindow):
         btn_export = QPushButton("⬇ Експорт документа")
         btn_export.clicked.connect(self._on_export_current)
         tb.addWidget(btn_export)
+
+        # Help button (right-most). Same as F1 / Довідка → Допомога.
+        btn_help = QPushButton("❓")
+        btn_help.setToolTip("Допомога (F1)")
+        btn_help.setFixedWidth(36)
+        btn_help.clicked.connect(self._on_help)
+        tb.addWidget(btn_help)
 
     def _build_central(self) -> None:
         central = QWidget()
@@ -317,9 +331,7 @@ class MainWindow(QMainWindow):
         except DomainError as e:
             QMessageBox.critical(self, "Помилка", e.message)
             return
-        dlg = EditMetadataDialog(
-            name=details.name, description=details.description, parent=self
-        )
+        dlg = EditMetadataDialog(name=details.name, description=details.description, parent=self)
         if not dlg.exec():
             return
         self._use_cases.update_document(
@@ -342,9 +354,7 @@ class MainWindow(QMainWindow):
             return
         abs_path = self._use_cases.resolve_path(details.file_path)
         if not abs_path.exists():
-            QMessageBox.warning(
-                self, "Файл не знайдено", f"Не знайдено файл: {abs_path}"
-            )
+            QMessageBox.warning(self, "Файл не знайдено", f"Не знайдено файл: {abs_path}")
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(abs_path)))
 
@@ -358,7 +368,9 @@ class MainWindow(QMainWindow):
 
     def _open_new_version_dialog(self, *, mode: str) -> None:
         if self._current_doc_id is None:
-            QMessageBox.information(self, "Документ не обрано", "Спершу оберіть документ зі списку.")
+            QMessageBox.information(
+                self, "Документ не обрано", "Спершу оберіть документ зі списку."
+            )
             return
         try:
             details = self._use_cases.get_document_details(self._current_doc_id)
@@ -371,9 +383,10 @@ class MainWindow(QMainWindow):
         self._apply_new_version(details, dlg)
 
     def _apply_new_version(self, details, dlg: NewVersionDialog) -> None:  # noqa: ANN001
-        head_node = next(
-            (v for v in details.recent_versions if v.is_head), None
-        ) or details.recent_versions[0]
+        head_node = (
+            next((v for v in details.recent_versions if v.is_head), None)
+            or details.recent_versions[0]
+        )
         # Resolve the file_id of the HEAD version once (needed if user picks "copy").
         head_file_id = self._head_file_id_for(details.id, head_node.version_id)
 
@@ -592,6 +605,14 @@ class MainWindow(QMainWindow):
             return
         QMessageBox.information(self, "Експорт", f"Збережено: {path}")
         self.refresh_all()
+
+    # ---------- Help ----------
+
+    def _on_help(self) -> None:
+        HelpDialog(self).exec()
+
+    def _on_about(self) -> None:
+        AboutDialog(self).exec()
 
     def _on_export_version_copy(self, version_id: int) -> None:
         # Export a single version's blob with the correct extension and a sensible default name.
