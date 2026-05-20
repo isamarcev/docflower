@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/isamarcev/docflower/compare/1.0.0...1.1.0) (2026-05-20)
+
+
+### Features
+
+* implement help system and enhance UI styling ([538382f](https://github.com/isamarcev/docflower/commit/538382f5bd7e7565d108157bd9ba0a2e64e02e76))
+
 # 1.0.0 (2026-05-20)
 
 
