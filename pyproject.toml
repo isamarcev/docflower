@@ -12,7 +12,20 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "N"]
+select = ["F", "E", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",   # line too long (форматтер сам разбивает)
+    "B008",   # function-call-in-default-argument
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["docflow"]
 
 [tool.mypy]
 python_version = "3.11"

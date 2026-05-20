@@ -1,6 +1,7 @@
 -r requirements.txt
 pytest==8.3.3
 pytest-qt==4.4.0
-ruff==0.6.9
+ruff==0.9.10
 mypy==1.11.2
+pre-commit==4.0.1
 pyinstaller==6.10.0

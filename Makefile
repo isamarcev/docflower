@@ -1,12 +1,15 @@
 PYTHON ?= python3
 VENV   ?= .venv
 
-.PHONY: help venv install run lint fmt typecheck test build-exe clean
+.PHONY: help setup venv install install-hooks pre-commit-all run lint fmt typecheck test build-exe clean
 
 help:
 	@echo "Доступні команди:"
+	@echo "  make setup        — повна первинна налаштування (venv + deps + pre-commit hooks)"
 	@echo "  make venv         — створити .venv"
 	@echo "  make install      — поставити залежності (dev)"
+	@echo "  make install-hooks— встановити pre-commit гачки в .git/hooks"
+	@echo "  make pre-commit-all— прогнати pre-commit по всіх файлах"
 	@echo "  make run          — запустити додаток"
 	@echo "  make lint         — ruff check"
 	@echo "  make fmt          — ruff format"
@@ -15,12 +18,22 @@ help:
 	@echo "  make build-exe    — зібрати .exe через PyInstaller (для Windows)"
 	@echo "  make clean        — почистити кеші та збірки"
 
+setup: venv install install-hooks
+	@echo ""
+	@echo "Готово. Спробуйте: make run"
+
 venv:
 	$(PYTHON) -m venv $(VENV)
 
 install:
 	$(VENV)/bin/pip install --upgrade pip
 	$(VENV)/bin/pip install -r requirements-dev.txt
+
+install-hooks:
+	$(VENV)/bin/pre-commit install
+
+pre-commit-all:
+	$(VENV)/bin/pre-commit run --all-files
 
 run:
 	PYTHONPATH=src $(VENV)/bin/python -m docflow.main.app
