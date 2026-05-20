@@ -1,0 +1,27 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+#
+# Allowed types:
+# feat:     A new feature (minor release)
+# fix:      A bug fix (patch release)
+# perf:     Performance improvements (patch release)
+# build:    Changes that affect build system or dependencies
+# ci:       CI configuration changes
+# docs:     Documentation only changes (no release)
+# style:    Formatting, missing semi colons, etc (no release)
+# refactor: Code change that neither fixes a bug nor adds a feature
+# test:     Adding or correcting tests
+# chore:    Maintenance tasks
+# revert:   Reverts a previous commit
+#
+# Breaking changes:
+# Add "BREAKING CHANGE:" in the footer
+# or append "!" after type/scope
+#
+# Examples:
+# feat(ui): add document export dialog
+# fix(storage)!: change file path layout
+# revert: feat(ui): add document export dialog

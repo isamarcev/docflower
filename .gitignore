@@ -9,6 +9,9 @@ build/
 dist/
 *.spec
 
+# Node (тільки для semantic-release у CI)
+node_modules/
+
 # Локальні дані користувача — не комітимо
 data/docflow.db
 data/docflow.db-journal
