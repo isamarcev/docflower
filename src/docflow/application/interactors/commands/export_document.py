@@ -2,13 +2,12 @@
 
 Layout inside the archive::
 
-    <doc-name>/
-        manifest.json        # metadata + version map (label -> filename)
-        versions/
-            v1.0.docx
-            v2.0.docx
-            d1.0.docx
-            ...
+    manifest.json                # metadata + version table
+    versions/<branch>/<label>.<ext>
+
+If two versions share a file_id (e.g. after a revert), they appear as two
+separate entries pointing at the same content — we copy the blob once per
+filename, which keeps the archive self-describing.
 """
 
 from __future__ import annotations
@@ -23,15 +22,15 @@ from docflow.application.interfaces import FileStorage
 from docflow.application.interfaces.repositories import (
     AuditRepository,
     DocumentRepository,
+    FileRepository,
     TagRepository,
     VersionRepository,
 )
 from docflow.domain.entities import AuditAction, AuditLogEntry, Branch
 
 
-def _archive_filename(label: str, branch_id: int, branches: list[Branch], file_path: str) -> str:
+def _archive_filename(label: str, branch_id: int, branches: list[Branch], ext: str) -> str:
     branch_name = next((b.name for b in branches if b.id == branch_id), "unknown")
-    ext = Path(file_path).suffix
     return f"versions/{branch_name}/{label}{ext}"
 
 
@@ -39,6 +38,7 @@ def _archive_filename(label: str, branch_id: int, branches: list[Branch], file_p
 class ExportDocument:
     documents: DocumentRepository
     versions: VersionRepository
+    files: FileRepository
     tags: TagRepository
     audit: AuditRepository
     storage: FileStorage
@@ -49,7 +49,9 @@ class ExportDocument:
         branches = self.versions.list_branches(doc.id)
         all_versions = self.versions.list_versions(doc.id)
         doc_tags = self.tags.list_for_document(doc.id)
+        files_by_id = {f.id: f for f in self.files.list_for_document(doc.id)}
 
+        ext = f".{doc.doc_type.value}"
         manifest = {
             "exported_at": datetime.now().isoformat(),
             "exported_by": actor,
@@ -74,11 +76,10 @@ class ExportDocument:
                     ),
                     "created_at": v.created_at.isoformat(),
                     "created_by": v.created_by,
-                    "sha1": v.sha1,
-                    "size": v.file_size,
-                    # why: same label can exist in different branches (v1.2 in main and
-                    # v1.2 in draft-Q1), so we namespace files by branch in the zip.
-                    "filename": _archive_filename(v.label, v.branch_id, branches, v.file_path),
+                    "file_id": v.file_id,
+                    "sha1": files_by_id[v.file_id].sha1 if v.file_id in files_by_id else None,
+                    "size": files_by_id[v.file_id].size_bytes if v.file_id in files_by_id else 0,
+                    "filename": _archive_filename(v.label, v.branch_id, branches, ext),
                 }
                 for v in all_versions
             ],
@@ -91,9 +92,12 @@ class ExportDocument:
                 json.dumps(manifest, ensure_ascii=False, indent=2),
             )
             for v in all_versions:
-                source = self.storage.resolve(v.file_path)
+                doc_file = files_by_id.get(v.file_id)
+                if doc_file is None:
+                    continue
+                source = self.storage.resolve(doc_file.relative_path)
                 if source.exists():
-                    arcname = _archive_filename(v.label, v.branch_id, branches, v.file_path)
+                    arcname = _archive_filename(v.label, v.branch_id, branches, ext)
                     zf.write(source, arcname=arcname)
 
         self.audit.record(

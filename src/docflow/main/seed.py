@@ -1,6 +1,7 @@
 """Seed data for the first run — gives the UI something to render.
 
-Only runs if the documents table is empty. Idempotent on subsequent launches.
+Schema v2: blob is stored, then DocumentFile row is added, then DocumentVersion
+references it. Idempotent on subsequent launches.
 """
 
 from __future__ import annotations
@@ -16,17 +17,19 @@ from docflow.domain.entities import (
     AuditLogEntry,
     Branch,
     Document,
+    DocumentFile,
     DocumentType,
     DocumentVersion,
     Tag,
 )
 from docflow.infrastructure.repositories.audit_repo import SqliteAuditRepository
 from docflow.infrastructure.repositories.document_repo import SqliteDocumentRepository
+from docflow.infrastructure.repositories.file_repo import SqliteFileRepository
 from docflow.infrastructure.repositories.tag_repo import SqliteTagRepository
 from docflow.infrastructure.repositories.version_repo import SqliteVersionRepository
 
+
 def _default_description(name: str) -> str:
-    """Lightweight stub-description so seeded cards aren't empty."""
     base = name.rsplit(".", 1)[0].replace("_", " ")
     return f"{base}. Сидоване значення для демонстрації картки документа."
 
@@ -51,6 +54,7 @@ def seed_if_empty(conn: sqlite3.Connection, storage: FileStorage, *, actor: str)
 
     docs = SqliteDocumentRepository(conn)
     versions = SqliteVersionRepository(conn)
+    files = SqliteFileRepository(conn)
     tags_repo = SqliteTagRepository(conn)
     audit = SqliteAuditRepository(conn)
 
@@ -107,22 +111,30 @@ def seed_if_empty(conn: sqlite3.Connection, storage: FileStorage, *, actor: str)
             )
             assert branch.id is not None
 
-            # Dummy file in storage so size/sha1 are populated
             placeholder = tmp / name
-            placeholder.write_bytes(b"DocFlow placeholder content\n")
+            placeholder.write_bytes(f"DocFlow placeholder for {name}\n".encode())
             rel_path, size, sha1 = storage.save(placeholder, document_type=doc_type.value)
+            doc_file = files.add(
+                DocumentFile(
+                    id=None,
+                    document_id=doc.id,
+                    relative_path=rel_path,
+                    size_bytes=size,
+                    sha1=sha1,
+                    created_at=created,
+                )
+            )
+            assert doc_file.id is not None
 
             version = versions.add_version(
                 DocumentVersion(
                     id=None,
                     document_id=doc.id,
                     branch_id=branch.id,
+                    file_id=doc_file.id,
                     label="v1.0",
                     message="Початкова версія",
                     parent_version_id=None,
-                    file_path=rel_path,
-                    file_size=size,
-                    sha1=sha1,
                     created_at=created + timedelta(hours=1),
                     created_by=actor,
                 )

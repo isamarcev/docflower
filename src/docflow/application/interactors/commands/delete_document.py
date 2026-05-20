@@ -1,4 +1,4 @@
-"""Delete a document along with all versions, branches and storage blobs."""
+"""Delete a document along with all versions, branches, files, and blobs."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from docflow.application.interfaces import FileStorage
 from docflow.application.interfaces.repositories import (
     AuditRepository,
     DocumentRepository,
-    VersionRepository,
+    FileRepository,
 )
 from docflow.domain.entities import AuditAction, AuditLogEntry
 
@@ -17,14 +17,14 @@ from docflow.domain.entities import AuditAction, AuditLogEntry
 @dataclass(slots=True)
 class DeleteDocument:
     documents: DocumentRepository
-    versions: VersionRepository
+    files: FileRepository
     audit: AuditRepository
     storage: FileStorage
 
     def __call__(self, document_id: int, *, actor: str) -> None:
         doc = self.documents.get(document_id)
-        # why: record audit FIRST, then delete. Otherwise audit_log.document_id FK
-        # rejects the insert (ON DELETE SET NULL fires only when the row already exists).
+        # why: record audit FIRST. After CASCADE the document row is gone and FK
+        # would reject an INSERT with that document_id.
         self.audit.record(
             AuditLogEntry(
                 id=None,
@@ -35,10 +35,12 @@ class DeleteDocument:
                 details=f"{doc.name} → корзина",
             )
         )
-        # Best-effort: remove blobs; DB cascade handles versions/branches/tag-links.
-        for v in self.versions.list_versions(document_id):
+        # Unlink every blob that belonged to this document. Because all blobs are
+        # scoped to one document, we don't need to check reference counts.
+        for f in self.files.list_for_document(document_id):
             try:
-                self.storage.delete(v.file_path)
+                self.storage.delete(f.relative_path)
             except Exception:  # noqa: BLE001 — non-fatal; storage may be already missing
                 pass
+        # ON DELETE CASCADE handles versions, branches, document_files, document_tags.
         self.documents.delete(document_id)

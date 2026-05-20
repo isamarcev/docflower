@@ -1,4 +1,8 @@
-"""Aggregate everything the document-card page renders, in one call."""
+"""Aggregate everything the document-card page renders, in one call.
+
+Resolves file metadata (path, size, sha1) by looking up the DocumentFile
+referenced by the HEAD version.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,7 @@ from docflow.application.dto import (
 from docflow.application.interfaces.repositories import (
     AuditRepository,
     DocumentRepository,
+    FileRepository,
     TagRepository,
     VersionRepository,
 )
@@ -22,6 +27,7 @@ from docflow.application.interfaces.repositories import (
 class GetDocumentDetails:
     documents: DocumentRepository
     versions: VersionRepository
+    files: FileRepository
     tags: TagRepository
     audit: AuditRepository
 
@@ -33,13 +39,13 @@ class GetDocumentDetails:
         head = self.versions.get_head(doc.id)
         all_versions = self.versions.list_versions(doc.id)
 
-        # Build tag views
+        head_file = self.files.get(head.file_id) if head else None
+
         tag_views = [
             TagView(id=t.id or 0, name=t.name, color=t.color, description=t.description)
             for t in self.tags.list_for_document(doc.id)
         ]
 
-        # Recent versions: first 5
         recent_versions: list[VersionNode] = []
         branch_names = {b.id: b.name for b in branches}
         for v in all_versions[:5]:
@@ -57,7 +63,6 @@ class GetDocumentDetails:
                 )
             )
 
-        # Recent audit: filter by document_id
         audit_entries = self.audit.list_recent(limit=5, document_id=doc.id)
         recent_audit = [
             AuditRow(
@@ -74,13 +79,13 @@ class GetDocumentDetails:
             created_at=doc.created_at,
             updated_at=doc.updated_at,
             created_by=doc.created_by,
-            size_bytes=head.file_size if head else 0,
-            sha1=head.sha1 if head else "",
+            size_bytes=head_file.size_bytes if head_file else 0,
+            sha1=head_file.sha1 if head_file else "",
             head_label=head.label if head else "—",
             branch_name="main",
             versions_total=len(all_versions),
             branches_total=len(branches),
-            file_path=head.file_path if head else "",
+            file_path=head_file.relative_path if head_file else "",
             tags=tag_views,
             recent_versions=recent_versions,
             recent_audit=recent_audit,

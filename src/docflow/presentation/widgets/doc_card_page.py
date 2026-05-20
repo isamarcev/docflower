@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QFormLayout,
     QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QTableWidget,
@@ -107,12 +108,27 @@ class DocumentCardPage(QWidget):
         left = QVBoxLayout()
         body.addLayout(left, stretch=3)
 
+        # why: QFormLayout pushes the field column past the longest label
+        # ("Контрольна сума:"), leaving a huge gap before short values. We want
+        # values flush-left, with the label column just as wide as needed.
         self._meta_box = QGroupBox("Метадані")
-        meta_layout = QFormLayout(self._meta_box)
-        meta_layout.setHorizontalSpacing(20)
+        meta_layout = QGridLayout(self._meta_box)
+        meta_layout.setHorizontalSpacing(12)
+        meta_layout.setVerticalSpacing(6)
+        meta_layout.setColumnStretch(0, 0)   # label column — fixed
+        meta_layout.setColumnStretch(1, 1)   # value column — expands
+
+        label_style = "color: #7A7257;"
+
         self._meta_type = QLabel("—")
-        self._meta_path = QLabel("—")
-        self._meta_path.setWordWrap(True)
+        # why: QLabel + wordWrap breaks paths at "/" chars and looks awful;
+        # readOnly QLineEdit shows on one line, supports selection/copy.
+        self._meta_path = QLineEdit("—")
+        self._meta_path.setReadOnly(True)
+        self._meta_path.setStyleSheet(
+            "QLineEdit { background: transparent; border: none;"
+            " font-family: monospace; color: #2C2C2C; padding: 0; margin: 0; }"
+        )
         self._meta_created = QLabel("—")
         self._meta_updated = QLabel("—")
         self._meta_size = QLabel("—")
@@ -121,15 +137,24 @@ class DocumentCardPage(QWidget):
         self._meta_branches = QLabel("—")
         self._meta_sha1 = QLabel("—")
         self._meta_sha1.setStyleSheet("font-family: monospace; color: #7A7257;")
-        meta_layout.addRow("Тип файлу:", self._meta_type)
-        meta_layout.addRow("Шлях:", self._meta_path)
-        meta_layout.addRow("Створено:", self._meta_created)
-        meta_layout.addRow("Останнє оновл.:", self._meta_updated)
-        meta_layout.addRow("Розмір:", self._meta_size)
-        meta_layout.addRow("Поточна версія:", self._meta_current_ver)
-        meta_layout.addRow("Усього версій:", self._meta_total_ver)
-        meta_layout.addRow("Гілок:", self._meta_branches)
-        meta_layout.addRow("Контрольна сума:", self._meta_sha1)
+
+        meta_rows = [
+            ("Тип файлу", self._meta_type),
+            ("Шлях", self._meta_path),
+            ("Створено", self._meta_created),
+            ("Останнє оновл.", self._meta_updated),
+            ("Розмір", self._meta_size),
+            ("Поточна версія", self._meta_current_ver),
+            ("Усього версій", self._meta_total_ver),
+            ("Гілок", self._meta_branches),
+            ("Контрольна сума", self._meta_sha1),
+        ]
+        for row, (label_text, value_widget) in enumerate(meta_rows):
+            label = QLabel(label_text + ":")
+            label.setStyleSheet(label_style)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            meta_layout.addWidget(label, row, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            meta_layout.addWidget(value_widget, row, 1)
         left.addWidget(self._meta_box)
 
         # Tags
@@ -207,6 +232,10 @@ class DocumentCardPage(QWidget):
                      "xls":  "xls · Microsoft Excel", "pdf":  "pdf · Adobe PDF"}
         self._meta_type.setText(type_long.get(d.doc_type.value, d.doc_type.value))
         self._meta_path.setText(d.file_path or "—")
+        # why: setText scrolls QLineEdit to the cursor (end); home() moves cursor
+        # to position 0 AND scrolls the view there. setCursorPosition alone
+        # doesn't always re-scroll on first paint.
+        self._meta_path.home(False)
         self._meta_created.setText(
             f"{d.created_at.strftime('%d.%m.%Y %H:%M')} · {d.created_by}"
         )

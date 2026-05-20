@@ -1,4 +1,8 @@
-"""SQLite-backed VersionRepository (branches + versions)."""
+"""SQLite-backed VersionRepository (branches + versions).
+
+Schema v2: versions reference document_files via file_id; physical file path
+is owned by DocumentFile, not DocumentVersion.
+"""
 
 from __future__ import annotations
 
@@ -60,19 +64,17 @@ class SqliteVersionRepository:
         cur = self._conn.execute(
             """
             INSERT INTO versions
-              (document_id, branch_id, label, message, parent_version_id,
-               file_path, file_size, sha1, created_at, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (document_id, branch_id, file_id, label, message,
+               parent_version_id, created_at, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 version.document_id,
                 version.branch_id,
+                version.file_id,
                 version.label,
                 version.message,
                 version.parent_version_id,
-                version.file_path,
-                version.file_size,
-                version.sha1,
                 version.created_at.isoformat(),
                 version.created_by,
             ),
@@ -133,12 +135,10 @@ def _row_to_version(row: sqlite3.Row) -> DocumentVersion:
         id=row["id"],
         document_id=row["document_id"],
         branch_id=row["branch_id"],
+        file_id=row["file_id"],
         label=row["label"],
         message=row["message"],
         parent_version_id=row["parent_version_id"],
-        file_path=row["file_path"],
-        file_size=row["file_size"],
-        sha1=row["sha1"],
         created_at=datetime.fromisoformat(row["created_at"]),
         created_by=row["created_by"],
     )

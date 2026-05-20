@@ -28,12 +28,21 @@ class ImportDocumentInput:
 
 @dataclass(slots=True)
 class CreateVersionInput:
+    """Either ``source_path`` OR ``reuse_file_id`` must be set, never both.
+
+    * ``source_path``    — import a brand-new blob from disk.
+    * ``reuse_file_id``  — point the new version at an existing DocumentFile;
+      this is how "create a branch as a copy of the current version" works:
+      no new blob, just a fresh label pointing at the parent's file.
+    """
+
     document_id: int
     branch_id: int
     parent_version_id: int | None
-    source_path: Path
     message: str
     actor: str
+    source_path: Path | None = None
+    reuse_file_id: int | None = None
 
 
 @dataclass(slots=True)

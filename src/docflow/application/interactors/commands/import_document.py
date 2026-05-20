@@ -1,4 +1,7 @@
-"""Import a brand-new document with its initial version (v1.0) in branch ``main``."""
+"""Import a brand-new document with its initial version (v1.0) in branch ``main``.
+
+Schema v2: the blob lives in DocumentFile; the version references it via file_id.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +13,7 @@ from docflow.application.interfaces import FileStorage
 from docflow.application.interfaces.repositories import (
     AuditRepository,
     DocumentRepository,
+    FileRepository,
     TagRepository,
     VersionRepository,
 )
@@ -18,6 +22,7 @@ from docflow.domain.entities import (
     AuditLogEntry,
     Branch,
     Document,
+    DocumentFile,
     DocumentType,
     DocumentVersion,
 )
@@ -27,6 +32,7 @@ from docflow.domain.entities import (
 class ImportDocument:
     documents: DocumentRepository
     versions: VersionRepository
+    files: FileRepository
     tags: TagRepository
     audit: AuditRepository
     storage: FileStorage
@@ -63,18 +69,29 @@ class ImportDocument:
         )
         assert main.id is not None
 
+        # Save blob and record it as a DocumentFile.
         rel_path, size, sha1 = self.storage.save(cmd.source_path, document_type=doc_type.value)
+        doc_file = self.files.add(
+            DocumentFile(
+                id=None,
+                document_id=doc.id,
+                relative_path=rel_path,
+                size_bytes=size,
+                sha1=sha1,
+                created_at=now,
+            )
+        )
+        assert doc_file.id is not None
+
         version = self.versions.add_version(
             DocumentVersion(
                 id=None,
                 document_id=doc.id,
                 branch_id=main.id,
+                file_id=doc_file.id,
                 label="v1.0",
                 message="Початкова версія",
                 parent_version_id=None,
-                file_path=rel_path,
-                file_size=size,
-                sha1=sha1,
                 created_at=now,
                 created_by=cmd.actor,
             )

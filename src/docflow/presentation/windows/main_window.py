@@ -371,12 +371,14 @@ class MainWindow(QMainWindow):
         self._apply_new_version(details, dlg)
 
     def _apply_new_version(self, details, dlg: NewVersionDialog) -> None:  # noqa: ANN001
+        head_node = next(
+            (v for v in details.recent_versions if v.is_head), None
+        ) or details.recent_versions[0]
+        # Resolve the file_id of the HEAD version once (needed if user picks "copy").
+        head_file_id = self._head_file_id_for(details.id, head_node.version_id)
+
         try:
             if dlg.is_branch_mode():
-                # 1) create branch off current HEAD
-                head_node = next(
-                    (v for v in details.recent_versions if v.is_head), None
-                ) or details.recent_versions[0]
                 branch = self._use_cases.create_branch(
                     CreateBranchInput(
                         document_id=details.id,
@@ -385,29 +387,23 @@ class MainWindow(QMainWindow):
                         actor=self._current_user,
                     )
                 )
-                # 2) put the first version inside it
                 self._use_cases.create_version(
-                    CreateVersionInput(
+                    self._build_version_input(
                         document_id=details.id,
                         branch_id=branch.id or 0,
                         parent_version_id=head_node.version_id,
-                        source_path=dlg.chosen_source(),
-                        message=dlg.chosen_message(),
-                        actor=self._current_user,
+                        head_file_id=head_file_id,
+                        dlg=dlg,
                     )
                 )
             else:
-                head_node = next(
-                    (v for v in details.recent_versions if v.is_head), None
-                ) or details.recent_versions[0]
                 self._use_cases.create_version(
-                    CreateVersionInput(
+                    self._build_version_input(
                         document_id=details.id,
                         branch_id=head_node.branch_id,
                         parent_version_id=head_node.version_id,
-                        source_path=dlg.chosen_source(),
-                        message=dlg.chosen_message(),
-                        actor=self._current_user,
+                        head_file_id=head_file_id,
+                        dlg=dlg,
                     )
                 )
         except DomainError as e:
@@ -419,8 +415,45 @@ class MainWindow(QMainWindow):
         self.refresh_all()
         self._show_card(details.id)
 
+    def _build_version_input(
+        self,
+        *,
+        document_id: int,
+        branch_id: int,
+        parent_version_id: int,
+        head_file_id: int,
+        dlg: NewVersionDialog,
+    ) -> CreateVersionInput:
+        """Translate the dialog's copy/new-file choice into a CreateVersionInput."""
+        if dlg.is_copy_from_parent():
+            return CreateVersionInput(
+                document_id=document_id,
+                branch_id=branch_id,
+                parent_version_id=parent_version_id,
+                message=dlg.chosen_message(),
+                actor=self._current_user,
+                reuse_file_id=head_file_id,
+            )
+        return CreateVersionInput(
+            document_id=document_id,
+            branch_id=branch_id,
+            parent_version_id=parent_version_id,
+            message=dlg.chosen_message(),
+            actor=self._current_user,
+            source_path=dlg.chosen_source(),
+        )
+
+    def _head_file_id_for(self, document_id: int, version_id: int) -> int:
+        """Look up file_id of a specific version.
+
+        VersionNode doesn't carry file_id (UI doesn't need to render it),
+        so we ask the helper attached to the use-case bundle.
+        """
+        _ = document_id  # for symmetry / future per-doc cache
+        return self._use_cases.version_file_id(version_id=version_id)
+
     def _on_new_branch_from_version(self, version_id: int) -> None:
-        # Triggered from version tree: creates a branch off the chosen version
+        # Triggered from version tree: creates a branch off the chosen version.
         if self._current_doc_id is None:
             return
         try:
@@ -440,14 +473,14 @@ class MainWindow(QMainWindow):
                     actor=self._current_user,
                 )
             )
+            head_file_id = self._head_file_id_for(details.id, version_id)
             self._use_cases.create_version(
-                CreateVersionInput(
+                self._build_version_input(
                     document_id=details.id,
                     branch_id=branch.id or 0,
                     parent_version_id=version_id,
-                    source_path=dlg.chosen_source(),
-                    message=dlg.chosen_message(),
-                    actor=self._current_user,
+                    head_file_id=head_file_id,
+                    dlg=dlg,
                 )
             )
         except DomainError as e:
@@ -561,18 +594,36 @@ class MainWindow(QMainWindow):
         self.refresh_all()
 
     def _on_export_version_copy(self, version_id: int) -> None:
-        # Export a single-version blob into a chosen folder, with its original-style filename.
-        nodes = self._use_cases.get_version_tree(self._current_doc_id or 0)
+        # Export a single version's blob with the correct extension and a sensible default name.
+        if self._current_doc_id is None:
+            return
+        try:
+            details = self._use_cases.get_document_details(self._current_doc_id)
+        except DomainError as e:
+            QMessageBox.critical(self, "Помилка", e.message)
+            return
+        nodes = self._use_cases.get_version_tree(self._current_doc_id)
         node = next((n for n in nodes if n.version_id == version_id), None)
         if node is None:
             return
+        ext = details.doc_type.value
+        base = Path(details.name).stem  # "Акт_списання_2024-Q4"
+        default_name = f"{base}_{node.label}.{ext}"
         path, _ = QFileDialog.getSaveFileName(
-            self, "Зберегти копію версії", f"{node.label}.bin", "Файли (*.*)"
+            self,
+            "Зберегти копію версії",
+            default_name,
+            f"Документ {ext} (*.{ext})",
         )
         if not path:
             return
+        # Make sure extension is present even if the user removed it.
+        chosen = Path(path)
+        if chosen.suffix.lower() != f".{ext}":
+            chosen = chosen.with_suffix(f".{ext}")
         try:
-            self._use_cases.export_version_copy(version_id=version_id, destination=Path(path))
+            self._use_cases.export_version_copy(version_id=version_id, destination=chosen)
         except Exception as e:  # noqa: BLE001
             QMessageBox.critical(self, "Помилка експорту", str(e))
             return
+        QMessageBox.information(self, "Експорт", f"Збережено: {chosen}")

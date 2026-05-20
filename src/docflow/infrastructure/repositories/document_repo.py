@@ -40,16 +40,17 @@ class SqliteDocumentRepository:
         return _row_to_document(row)
 
     def list_all(self, *, name_query: str | None = None) -> list[Document]:
+        # why: SQLite's NOCASE collation is ASCII-only, so "ігор" wouldn't match
+        # "Ігор". We fetch everything and filter in Python using ``casefold()``,
+        # which is Unicode-aware. Fine for our scale (hundreds of documents).
+        rows = self._conn.execute(
+            "SELECT * FROM documents ORDER BY updated_at DESC"
+        ).fetchall()
+        docs = [_row_to_document(r) for r in rows]
         if name_query:
-            rows = self._conn.execute(
-                "SELECT * FROM documents WHERE name LIKE ? COLLATE NOCASE ORDER BY updated_at DESC",
-                (f"%{name_query}%",),
-            ).fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT * FROM documents ORDER BY updated_at DESC"
-            ).fetchall()
-        return [_row_to_document(r) for r in rows]
+            needle = name_query.casefold()
+            docs = [d for d in docs if needle in d.name.casefold()]
+        return docs
 
     def update(self, document: Document) -> None:
         if document.id is None:

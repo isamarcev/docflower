@@ -11,7 +11,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QVBoxLayout,
@@ -35,19 +34,13 @@ class Sidebar(QFrame):
         # Workspace header (single-admin product label)
         header = QLabel("📁  Документообіг\nслужба списання · локально")
         header.setStyleSheet(
-            "padding: 14px 14px 10px; font-weight: 600; font-size: 13px;"
+            "padding: 14px 14px 14px; font-weight: 600; font-size: 13px;"
         )
         layout.addWidget(header)
 
-        # Quick search box (Ctrl+F shortcut wired up in main window)
-        self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("🔎  Швидкий пошук…")
-        self.search_box.setContentsMargins(10, 0, 10, 8)
-        wrap = QFrame()
-        wrap_l = QVBoxLayout(wrap)
-        wrap_l.setContentsMargins(10, 0, 10, 10)
-        wrap_l.addWidget(self.search_box)
-        layout.addWidget(wrap)
+        # why: previously had a "Швидкий пошук" QLineEdit here, but it duplicates
+        # the toolbar search and wasn't actually wired up. Removed to avoid
+        # surprising "this field does nothing" UX.
 
         # Workspace section
         layout.addWidget(self._section_label("РОБОЧИЙ ПРОСТІР"))

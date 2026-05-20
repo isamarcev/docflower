@@ -53,3 +53,8 @@ def _sha1_of(path: Path, chunk: int = 1 << 20) -> str:
         for block in iter(lambda: f.read(chunk), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def sha1_of_file(path: Path) -> str:
+    """Public helper for use-cases that need to peek at a file's hash before save."""
+    return _sha1_of(path)
