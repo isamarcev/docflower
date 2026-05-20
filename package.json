@@ -1,6 +1,6 @@
 {
   "name": "docflow",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "DocFlow — документообіг служби списання",
   "private": true,
   "scripts": {
