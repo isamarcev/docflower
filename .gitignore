@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.spec
+
+# Локальні дані користувача — не комітимо
+data/docflow.db
+data/docflow.db-journal
+data/docflow.db-wal
+data/docflow.db-shm
+data/files/*
+!data/files/.gitkeep
+!data/.gitkeep
+
+.DS_Store
+.idea/
+.vscode/
