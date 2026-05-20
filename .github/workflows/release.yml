@@ -12,10 +12,14 @@ permissions:
 
 jobs:
   release:
+    name: Semantic Release
     runs-on: ubuntu-latest
     concurrency:
       group: release-${{ github.ref }}
       cancel-in-progress: false
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,10 +37,54 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install semantic-release deps
-        run: npm install --no-audit --no-fund
-
       - name: Run semantic-release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 24
+          extra_plugins: |
+            @semantic-release/changelog@6
+            @semantic-release/exec@6
+            @semantic-release/git@10
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+
+  build-windows:
+    name: Build Windows .exe
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.new_release_version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build .exe
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --windowed --onefile --name DocFlow `
+            --add-data "src/docflow/presentation/styles;docflow/presentation/styles" `
+            src/docflow/main/app.py
+
+      - name: Upload .exe to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release upload "${{ needs.release.outputs.new_release_version }}" `
+            dist/DocFlow.exe --clobber
